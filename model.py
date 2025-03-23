@@ -41,11 +41,6 @@ class BertForDocumentClassification(nn.Module):
         x = self.dropout(cls_hidden_state)
         logits = self.fc(x)
 
-        if self.multi_label:
-            logits = torch.sigmoid(logits)
-        else:
-            logits = torch.softmax(logits, dim=1)
-
         return logits
     
 class LSTMStudent(nn.Module):

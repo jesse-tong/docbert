@@ -11,7 +11,7 @@ def multi_label_encoding(example, num_classes=2):
 
 
 class BertDatasetForDocumentClassification:
-    def __init__(self, dataset="ag_news", model_name="bert-base-uncased", max_length=512, split=["train", "test"]):
+    def __init__(self, dataset="ag_news", model_name="bert-base-uncased", max_length=512, split=["train"]):
         self.dataset = load_dataset(dataset, split=split)[0]  # Get train dataset
         self.max_length = max_length
         self.multi_label = self.dataset.features["label"].num_classes > 2 if self.dataset.features["label"] else np.max(self.dataset["label"]) > 1
