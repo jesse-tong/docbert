@@ -11,7 +11,7 @@ import argparse
 def train_one_epoch(model, train_loader, optimizer, criterion, device):
     model.train()
     total_loss = 0
-    for batch in tqdm(train_loader):
+    for batch in tqdm(train_loader, leave=True):
         input_ids = batch["input_ids"].to(device)
         attention_mask = batch["attention_mask"].to(device)
         labels = batch["labels"].to(device)
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss() if not multi_label else nn.BCEWithLogitsLoss()
     
-    for epoch in trange(args.epochs):
+    for epoch in trange(args.epochs, leave=True):
         train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
         print(f"Epoch {epoch + 1} - Train Loss: {train_loss}")
 

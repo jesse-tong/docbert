@@ -25,8 +25,8 @@ if __name__ == "__main__":
     num_classes = dataset_processor.num_classes
     multi_label = dataset_processor.multi_label
 
-    #ltsm_model = LSTMStudent(vocab_size=30522, embedding_dim=768, hidden_dim=256, num_classes=num_classes)
-    #ltsm_model.load_state_dict(torch.load(args.ltsm_save_path))
+    ltsm_model = LSTMStudent(vocab_size=30522, embedding_dim=768, hidden_dim=256, num_classes=num_classes)
+    ltsm_model.load_state_dict(torch.load(args.ltsm_save_path))
 
     bert_model = BertForDocumentClassification(args.bert_save_path, num_classes=num_classes, multi_label=multi_label)
 
@@ -37,8 +37,8 @@ if __name__ == "__main__":
     eval_loader = torch.utils.data.DataLoader(eval_dataset_part, batch_size=batch_size, collate_fn=data_collator)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    #ltsm_predictions = get_student_predictions(ltsm_model, eval_loader, device)
-    #ltsm_predictions = convert_preds_to_labels(ltsm_predictions)
+    ltsm_predictions = get_student_predictions(ltsm_model, eval_loader, device)
+    ltsm_predictions = convert_preds_to_labels(ltsm_predictions)
 
     bert_predictions = get_teacher_predictions(bert_model, eval_loader, device)
     bert_predictions = convert_preds_to_labels(bert_predictions)
@@ -50,16 +50,16 @@ if __name__ == "__main__":
     accuracy = evaluate.load("accuracy")
     f1 = evaluate.load("f1")
 
-    #ltsm_accuracy = accuracy.compute(ltsm_predictions, true_labels)
-    bert_accuracy = accuracy.compute(bert_predictions, true_labels)
+    ltsm_accuracy = accuracy.compute(predictions=ltsm_predictions, references=true_labels)
+    bert_accuracy = accuracy.compute(predictions=bert_predictions, references=true_labels)
 
-    #ltsm_f1 = f1.compute(ltsm_predictions, true_labels)
-    bert_f1 = f1.compute(bert_predictions, true_labels)
+    ltsm_f1 = f1.compute(predictions=ltsm_predictions, references=true_labels, average="micro")
+    bert_f1 = f1.compute(predictions=bert_predictions, references=true_labels, average="micro")
 
-    #print(f"LSTM Student Accuracy: {ltsm_accuracy}")
+    print(f"LSTM Student Accuracy: {ltsm_accuracy}")
     print(f"Bert Model Accuracy: {bert_accuracy}")
 
-    #print(f"LSTM Student F1 Score: {ltsm_f1}")
+    print(f"LSTM Student F1 Score: {ltsm_f1}")
     print(f"Bert Model F1 Score: {bert_f1}")
     
     
