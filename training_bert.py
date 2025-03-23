@@ -25,6 +25,9 @@ def evaluate_model(model, eval_loader, device):
         accuracy = evaluate.load("accuracy")
         f1 = evaluate.load("f1")
 
+        all_logits = torch.cat(all_logits, dim=0)
+        all_labels = torch.cat(all_labels, dim=0)
+
         # Change in evaluate_model
         if multi_label:
             predictions = torch.argmax(all_logits, dim=1)
