@@ -1,9 +1,10 @@
-from model import LSTMStudent, KnowledgeDistillationLoss, BertForDocumentClassification
+from model import LSTMStudent, KnowledgeDistillationLoss
 from dataset import BertDatasetForDocumentClassification
+from tokenizer import DocumentBatchCollator
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from transformers import DataCollatorWithPadding
+from transformers import BertForSequenceClassification
 import argparse
 from tqdm import tqdm, trange
 
@@ -15,7 +16,7 @@ def get_teacher_predictions(model, dataloader, device):
         for batch in dataloader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
-            logits = model(input_ids, attention_mask)
+            logits = model(input_ids, attention_mask).logits
             all_logits.append(logits)
 
     return torch.cat(all_logits, dim=0) # Combine all logits batchwise
@@ -36,7 +37,7 @@ if __name__ == "__main__":
     dataset = dataset_processor.map()
     
     tokenizer = dataset_processor.tokenizer.tokenizer
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    data_collator = DocumentBatchCollator(pad_token_id=tokenizer.pad_token_id)
     num_classes = dataset_processor.num_classes
     multi_label = dataset_processor.multi_label
     print("Dataset processed!")
@@ -44,7 +45,7 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, collate_fn=data_collator)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    teacher_model = BertForDocumentClassification(args.model_name, num_classes, multi_label).to(device)
+    teacher_model = BertForSequenceClassification.from_pretrained(args.model_name, num_labels=num_classes).to(device)
     teacher_model.eval()
 
     student_model = LSTMStudent(vocab_size=30522, embedding_dim=768, hidden_dim=256, num_classes=num_classes).to(device)

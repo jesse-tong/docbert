@@ -1,6 +1,6 @@
-from model import LSTMStudent, BertForDocumentClassification
+from model import LSTMStudent
 from dataset import BertDatasetForDocumentClassification
-from transformers import DataCollatorWithPadding
+from transformers import DataCollatorWithPadding, BertForSequenceClassification
 import argparse, torch, evaluate
 from inference import get_student_predictions
 from training_student import get_teacher_predictions
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     parser.add_argument("--ltsm_save_path", type=str, default="lstm_document_classification")
     parser.add_argument("--bert_save_path", type=str, default="bert_document_classification")
     parser.add_argument("--dataset", type=str, default="ag_news")
-    parser.add_argument("--eval_size", type=int, default=100)
+    parser.add_argument("--eval_size", type=int, default=640)
     args = parser.parse_args()
 
     dataset_processor = BertDatasetForDocumentClassification(dataset=args.dataset, split=["test"])
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     ltsm_model = LSTMStudent(vocab_size=30522, embedding_dim=768, hidden_dim=256, num_classes=num_classes)
     ltsm_model.load_state_dict(torch.load(args.ltsm_save_path))
 
-    bert_model = BertForDocumentClassification(args.bert_save_path, num_classes=num_classes, multi_label=multi_label)
+    bert_model = BertForSequenceClassification.from_pretrained(args.bert_save_path, num_labels=num_classes)
 
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
     eval_dataset_part = dataset.select(range(args.eval_size) if int(args.eval_size) < dataset_size else range(dataset_size))

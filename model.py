@@ -24,37 +24,27 @@ class KnowledgeDistillationLoss(nn.Module):
         # Combine losses
         loss = (1 - self.alpha) * classification_loss + self.alpha * distill_loss
         return loss
-
-
-class BertForDocumentClassification(nn.Module):
-    def __init__(self, model_name="bert-base-uncased", num_classes=2, multi_label=False, dropout=0.2):
-        super(BertForDocumentClassification, self).__init__()
-        self.bert = BertModel.from_pretrained(model_name)
-        self.classifier = nn.Linear(self.bert.config.hidden_size, num_classes)
-        self.dropout = nn.Dropout(self.bert.config.hidden_dropout_prob if dropout is None else dropout)
-        self.fc = nn.Linear(self.bert.config.hidden_size, num_classes) # Add a fully connected layer, according to the paper
-        self.multi_label = multi_label
-
-    def forward(self, input_ids, attention_mask):
-        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        cls_hidden_state = outputs.last_hidden_state[:, 0, :]
-        x = self.dropout(cls_hidden_state)
-        logits = self.fc(x)
-
-        return logits
     
 class LSTMStudent(nn.Module):
-    def __init__(self, vocab_size, embedding_dim=768, hidden_dim=256, num_classes=4, 
-                 num_layers=2, dropout=0.2):
+    def __init__(self, vocab_size, embedding_dim=300, hidden_dim=512, num_classes=4, 
+                  dropout=0.2):
         super(LSTMStudent, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True, num_layers=num_layers, dropout=dropout)
-        self.fc = nn.Linear(hidden_dim, num_classes)
+        # Regularization
+        self.dropout = nn.Dropout(dropout)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, bidirectional=True, batch_first=True, num_layers=1)
+        self.fc = nn.Linear(hidden_dim * 2, num_classes) # BiLSTM has 2x hidden_dim
 
     def forward(self, input_ids):
         embedded = self.embedding(input_ids)
-        lstm_out, _ = self.lstm(embedded)
-        final_hidden_state = lstm_out[:, -1, :]
-        logits = self.fc(final_hidden_state)
-        return torch.sigmoid(logits)
+        
+        # BiLSTM processing
+        lstm_out, (hidden, _) = self.lstm(embedded)
+        
+        # shape: [batch_size, hidden_dim*2]
+        final_hidden = torch.cat((hidden[0], hidden[1]), dim=1)
+        final_hidden = self.dropout(final_hidden)
+        logits = self.fc(final_hidden)
+
+        return logits
 

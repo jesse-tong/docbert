@@ -1,7 +1,7 @@
 import torch
 from model import LSTMStudent 
 from dataset import BertDatasetForDocumentClassification
-from transformers import DataCollatorWithPadding
+from tokenizer import DocumentBatchCollator
 
 def get_student_predictions(model, dataloader, device):
     model.eval()
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     dataset = dataset_processor.map()
     tokenizer = dataset_processor.tokenizer.tokenizer
 
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    data_collator = DocumentBatchCollator(pad_token_id=tokenizer.pad_token_id)
     demo_dataset_part = dataset.select(range(10))
     demo_loader = torch.utils.data.DataLoader(demo_dataset_part, batch_size=2, collate_fn=data_collator)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

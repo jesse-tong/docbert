@@ -1,14 +1,14 @@
 from dataset import BertDatasetForDocumentClassification
-from model import BertForDocumentClassification
+from transformers import BertForSequenceClassification
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from transformers import DataCollatorWithPadding
+from tokenizer import DocumentBatchCollator
 from tqdm import tqdm, trange
 import argparse, evaluate
 
-def evaluate_model(model, eval_loader, device):
+def evaluate_model(model, eval_loader, device, multi_label=True):
     with torch.no_grad():
         model.eval()
         all_logits = []
@@ -18,7 +18,7 @@ def evaluate_model(model, eval_loader, device):
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
             
-            logits = model(input_ids, attention_mask)
+            logits = model(input_ids, attention_mask).logits
             all_logits.append(logits)
             all_labels.append(labels)
 
@@ -50,7 +50,7 @@ def train_one_epoch(model, train_loader, optimizer, criterion, device):
         labels = batch["labels"].to(device)
         
         optimizer.zero_grad()
-        logits = model(input_ids, attention_mask)
+        logits = model(input_ids, attention_mask).logits
         loss = criterion(logits, labels)
         loss.backward()
         optimizer.step()
@@ -68,30 +68,30 @@ if __name__ == '__main__':
     parser.add_argument("--save_path", type=str, default="bert_document_classification")
     args = parser.parse_args()
     
-    dataset_processor = BertDatasetForDocumentClassification(args.dataset, args.model_name)
+    dataset_processor = BertDatasetForDocumentClassification(args.dataset, args.model_name, split=["train"])
     dataset = dataset_processor.map()
     tokenizer = dataset_processor.tokenizer.tokenizer
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    data_collator = DocumentBatchCollator(pad_token_id=tokenizer.pad_token_id)
     num_classes = dataset_processor.num_classes
     multi_label = dataset_processor.multi_label
 
     eval_dataset = BertDatasetForDocumentClassification(args.dataset, args.model_name, split=["test"])
-    # Get about 320 samples for evaluation
-    eval_dataset.dataset = eval_dataset.dataset.select(range(320) if len(eval_dataset.dataset) > 320 else range(len(eval_dataset.dataset)))
+    # Get about 480 samples for evaluation
+    eval_dataset.dataset = eval_dataset.dataset.select(range(480) if len(eval_dataset.dataset) > 320 else range(len(eval_dataset.dataset)))
     eval_dataset = eval_dataset.map()
     eval_loader = DataLoader(eval_dataset, batch_size=16, collate_fn=data_collator)
     
     train_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, collate_fn=data_collator)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    model = BertForDocumentClassification(args.model_name, num_classes, multi_label).to(device)
+    model = BertForSequenceClassification.from_pretrained(args.model_name, num_labels=num_classes).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss() if not multi_label else nn.BCEWithLogitsLoss()
     
     for epoch in trange(args.epochs, leave=True):
         train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
         print(f"Epoch {epoch + 1} - Train Loss: {train_loss}")
-        acc, f1 = evaluate_model(model, eval_loader, device)
+        acc, f1 = evaluate_model(model, eval_loader, device, multi_label=multi_label)
         print(f"Epoch {epoch + 1} - Eval Accuracy: {acc} - F1 Score: {f1}") 
 
     model.save_pretrained(args.save_path)
